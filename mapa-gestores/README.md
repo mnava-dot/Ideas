@@ -7,7 +7,11 @@ Mapa interactivo de los 2,475 municipios de México (INEGI 2023) con la asignaci
 - **Vista general**: cada municipio con el color de su gestor; rayas cuando el municipio lo comparten varios gestores.
 - **Municipio**: clic en el mapa o buscador → inmuebles, gestor(es), vecinos más cercanos y municipios con inmuebles más próximos.
 - **Distancias**: origen y destino → km en línea recta, km de carretera aproximados (recta × 1.3) y tiempo aproximado (75 km/h). Tabla de distancias a todo el estado, a todos los municipios con inmuebles o a la cartera del gestor; se copia como CSV.
-- **Ruta gestor**: ruta de visita sugerida (vecino más cercano + 2-opt) desde una base elegible y matriz de distancias de su cartera.
+- **Planificador**: arma el plan de visitas del gestor por jornadas, con fecha y hora:
+  - Parámetros: base de salida, primer día, hora de salida, horas por jornada, minutos por inmueble, velocidad promedio, solo días hábiles.
+  - Viajes de un día (algoritmo de ahorros Clarke-Wright) para municipios cercanos; giras con pernocta por zona para los lejanos o con muchos inmuebles; jornadas locales en la base; tramos de más de una jornada se marcan como traslado largo (considerar vuelo).
+  - Orden de cada salida optimizado (vecino más cercano + 2-opt), itinerario hora por hora con los inmuebles a visitar, enlace a Google Maps por día y exportación CSV.
+  - Se pueden quitar o agregar municipios del plan desde la lista o dando clic en el mapa.
 - Filtros por proyecto y estatus del inmueble.
 
 ## Correr localmente

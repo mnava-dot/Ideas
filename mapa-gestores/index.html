@@ -130,6 +130,28 @@ tr.click:hover td{background:var(--chip)}
 .ov-dist{stroke:var(--hi);stroke-dasharray:6 5}
 .ov-lbl{font-family:var(--f-mono);font-size:11px;font-weight:500;paint-order:stroke;stroke:var(--panel);stroke-width:3px;fill:var(--ink)}
 .loading{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-family:var(--f-mono);font-size:12px}
+
+.cfg{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px;background:var(--chip);border-radius:8px;padding:10px;margin-bottom:12px}
+.cfg label{display:flex;flex-direction:column;gap:3px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);min-width:0}
+.cfg select,.cfg input[type=number],.cfg input[type=date],.cfg input[type=time]{text-transform:none;letter-spacing:0;font-size:13px;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:5px 7px;width:100%;min-width:0}
+.cfg label.chk{flex-direction:row;align-items:center;gap:6px;align-self:end;padding-bottom:6px}
+details.incl{border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin:10px 0}
+details.incl summary{cursor:pointer;font-weight:600;font-size:12px}
+.mrow{display:flex;gap:6px;align-items:baseline;padding:3px 0;font-size:12px}
+.day{border:1px solid var(--line);border-radius:8px;margin-bottom:6px;overflow:hidden}
+.day.on{border-color:var(--gc);box-shadow:0 0 0 1px var(--gc)}
+.dh{display:grid;grid-template-columns:28px 1fr auto;gap:10px;align-items:center;width:100%;border:0;background:none;text-align:left;padding:8px 10px}
+.dh:hover{background:var(--chip)}
+.dh .dn{width:26px;height:26px;border-radius:7px;background:var(--gc);color:#fff;display:grid;place-items:center;font-family:var(--f-mono);font-weight:600;font-size:12px}
+.dh small{display:block;color:var(--muted);font-size:11px}
+.dm{text-align:right;font-family:var(--f-mono);font-size:12px;font-variant-numeric:tabular-nums}
+.dsum{padding:0 10px 8px 48px}
+.tlw{padding:2px 10px 10px;display:flex;flex-direction:column;gap:2px}
+.tl{display:grid;grid-template-columns:44px 1fr;gap:8px;font-size:12px;padding:2px 0}
+.tl .hr{font-family:var(--f-mono);color:var(--muted);font-variant-numeric:tabular-nums}
+.tl.drv span.note{border-left:2px dotted var(--line);padding-left:8px;margin-left:2px}
+.tl .inl{display:block;color:var(--muted);font-size:11px;margin-top:2px}
+.tlw a.btn{align-self:flex-start;margin-top:6px;text-decoration:none;color:var(--ink)}
 @media (max-width:1100px){.main{grid-template-columns:220px minmax(0,1fr)}.panel{grid-column:1/-1;max-height:none}}
 @media (max-width:720px){
   html,body{height:auto}
@@ -186,7 +208,7 @@ tr.click:hover td{background:var(--chip)}
       <div class="tabs" role="tablist">
         <button role="tab" id="t-mun" aria-selected="true">Municipio</button>
         <button role="tab" id="t-dist" aria-selected="false">Distancias</button>
-        <button role="tab" id="t-ruta" aria-selected="false">Ruta gestor</button>
+        <button role="tab" id="t-ruta" aria-selected="false">Planificador</button>
       </div>
       <div class="tabbody" id="tb"></div>
     </aside>
@@ -202,7 +224,7 @@ tr.click:hover td{background:var(--chip)}
 (async function(){
 const $=s=>document.querySelector(s);
 const _nf=new Intl.NumberFormat('es-MX');const fmt=v=>_nf.format(v);
-const ROAD=1.3, SPEED=75; // factor carretera y km/h promedio
+const ROAD=1.3; // factor carretera sobre línea recta
 const PALETTE=['#E4572E','#2E86AB','#8E5BD0','#17A673','#E8A33D','#D6457A','#2BB3C0','#9C7A3C','#5C7CFA','#9AA82C','#C964D9','#4E9A52','#C0392B','#7A8A99','#2C5F8A'];
 
 const [topo,etopo,inm]=await Promise.all(['data/municipios.topo.json','data/estados.topo.json','data/inmuebles.json'].map(u=>fetch(u).then(r=>r.json())));
@@ -227,7 +249,7 @@ const S={gestor:null,mun:null,tab:'mun',proy:new Set(PROY),est:new Set(EST),dist
 
 function hav(a,b){const R=6371,t=Math.PI/180;const p1=a.cy*t,p2=b.cy*t,dp=(b.cy-a.cy)*t,dl=(b.cx-a.cx)*t;const h=Math.sin(dp/2)**2+Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;return 2*R*Math.asin(Math.sqrt(h))}
 const km=(a,b)=>hav(M.get(a).properties,M.get(b).properties);
-const hrs=k=>{const h=k*ROAD/SPEED;const H=Math.floor(h),mm=Math.round((h-H)*60);return H?`${H} h ${String(mm).padStart(2,'0')}`:`${mm} min`};
+const hrs=k=>{const h=k*ROAD/CFG.spd;const H=Math.floor(h),mm=Math.round((h-H)*60);return H?`${H} h ${String(mm).padStart(2,'0')}`:`${mm} min`};
 
 // agregados con filtros
 let AG; // {mun: Map id->{n, byG:Map}, g: Map gestor->{n, muns:Map id->n, edos:Set}}
@@ -287,7 +309,7 @@ function paint(){
     if(m){
       if(S.gestor){
         const c=m.byG.get(S.gestor);
-        if(c){fill=GC.get(S.gestor);fo=op(c)}else{fill=d3.color(GC.get([...m.byG.keys()][0])||'#999').copy({opacity:1})+'';fo=.13}
+        if(c){fill=GC.get(S.gestor);fo=(S.tab==='ruta'&&exc(S.gestor).has(id))?.12:op(c)}else{fill=d3.color(GC.get([...m.byG.keys()][0])||'#999').copy({opacity:1})+'';fo=.13}
       }else{
         const gs=[...m.byG].sort((a,b)=>b[1]-a[1]).map(d=>GC.get(d[0])||'#888');
         fill=gs.length>1?stripe(gs.slice(0,3)):gs[0];fo=.9;
@@ -321,21 +343,30 @@ muns.on('pointermove',(e,f)=>{
   const id=f.properties.id;
   if(S.pickDest&&S.mun&&id!==S.mun){S.distTo=id;S.pickDest=false;setTab('dist')}
   else if(S.tab==='dist'&&S.mun&&id!==S.mun&&!e.shiftKey){S.distTo=id}
+  else if(S.tab==='ruta'&&S.gestor&&AG.g.get(S.gestor)?.muns.has(id)){const E=exc(S.gestor);E.has(id)?E.delete(id):E.add(id);S.day=null;keepOpen(()=>{paint();renderTab();drawOverlay()});return}
   else {S.mun=id;if(S.tab==='ruta')setTab('mun',true)}
   paint();renderTab();drawOverlay();
 });
 
 // overlay: línea de distancia y ruta
-let ROUTE=null;
 function drawOverlay(){
   ov.selectAll('*').remove();
   const P=id=>{const p=M.get(id).properties;return [T.applyX(p.px),T.applyY(p.py)]};
-  if(S.tab==='ruta'&&ROUTE&&ROUTE.order.length){
-    const c=GC.get(S.gestor);const pts=ROUTE.order.map(P);
-    ov.append('path').attr('class','ov-line').attr('stroke',c).attr('stroke-opacity',.9).attr('d',d3.line()(pts.concat(ROUTE.loop?[pts[0]]:[])));
-    const g=ov.selectAll('g.st').data(ROUTE.order).join('g').attr('transform',(d,i)=>`translate(${pts[i]})`);
-    g.append('circle').attr('r',(d,i)=>i?7:9).attr('fill',(d,i)=>i?c:'var(--ink)').attr('stroke','var(--panel)').attr('stroke-width',2);
-    g.append('text').attr('text-anchor','middle').attr('dy','.35em').attr('fill','#fff').attr('font-size',(d,i)=>i?8:9).attr('font-family','IBM Plex Mono,monospace').attr('font-weight',600).text((d,i)=>i?i:'B');
+  if(S.tab==='ruta'&&PLAN&&PLAN.days.length){
+    const c=GC.get(S.gestor);const line=d3.line().curve(d3.curveCatmullRom.alpha(.5));
+    PLAN.days.forEach((d,i)=>{
+      const ids=[d.from,...d.items.filter(t=>t.type==='drive').map(t=>t.to)];
+      const on=S.day==null||S.day===i;
+      ov.append('path').attr('class','ov-line').attr('stroke',S.day===i?'var(--ink)':c).attr('stroke-width',S.day===i?3:on?2:1.2).attr('stroke-opacity',on?.85:.18).attr('stroke-dasharray',d.trip.kind==='gira'?'7 4':null).attr('d',line(ids.map(P)));
+    });
+    const stopIds=S.day!=null?[...new Set(PLAN.days[S.day].items.filter(t=>t.type==='visit').map(t=>t.id))]:[...new Set(PLAN.days.flatMap(d=>d.items.filter(t=>t.type==='visit').map(t=>t.id)))].filter(id=>id!==PLAN.base);
+    const g=ov.selectAll('g.st').data(stopIds).join('g').attr('transform',id=>`translate(${P(id)})`);
+    g.append('circle').attr('r',S.day!=null?8:3.5).attr('fill',c).attr('stroke','var(--panel)').attr('stroke-width',S.day!=null?2:1);
+    if(S.day!=null)g.append('text').attr('text-anchor','middle').attr('dy','.35em').attr('fill','#fff').attr('font-size',8.5).attr('font-family','IBM Plex Mono,monospace').attr('font-weight',600).text((d,i)=>i+1);
+    PLAN.days.forEach(d=>{if(d.end!==PLAN.base&&(S.day==null||PLAN.days[S.day]===d)){const q=P(d.end);ov.append('text').attr('class','ov-lbl').attr('x',q[0]+9).attr('y',q[1]-7).text('☾')}});
+    const b=P(PLAN.base);const bg=ov.append('g').attr('transform',`translate(${b})`);
+    bg.append('rect').attr('x',-9).attr('y',-9).attr('width',18).attr('height',18).attr('rx',4).attr('fill','var(--ink)').attr('stroke','var(--panel)').attr('stroke-width',2);
+    bg.append('text').attr('text-anchor','middle').attr('dy','.35em').attr('fill','var(--panel)').attr('font-size',10).attr('font-weight',700).attr('font-family','IBM Plex Mono,monospace').text('B');
   }
   if(S.tab==='dist'&&S.mun&&S.distTo){
     const a=P(S.mun),b=P(S.distTo);
@@ -357,7 +388,7 @@ function glist(){
   document.querySelectorAll('.g').forEach(b=>b.onclick=()=>selectGestor(b.dataset.g===S.gestor?null:b.dataset.g));
 }
 function selectGestor(g){
-  S.gestor=g;S.base=null;ROUTE=null;
+  S.gestor=g;S.base=null;S.day=null;PLAN=null;
   glist();paint();
   if(g){const ids=[...(AG.g.get(g)?.muns.keys()||[])];zoomToIds(ids,20);setTab('ruta')}
   else{svg.transition().duration(600).call(zoom.transform,d3.zoomIdentity);renderTab();drawOverlay()}
@@ -432,7 +463,7 @@ function tabDist(){
   tb.innerHTML=`<div class="dist-hero"><div class="end"><small>Origen</small><b>${a.n}</b><span class="note">${a.s}</span></div><span class="arrow">→</span><div class="end"><small>Destino</small>${b?`<b>${b.n}</b><span class="note">${b.s}</span>`:`<span class="note">Clic en el mapa</span>`}</div></div>
   <div class="search" style="margin:0 0 10px;flex:none"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input id="qd" type="search" placeholder="Buscar destino…" autocomplete="off" aria-label="Buscar destino"><div class="results" id="qdres" hidden></div></div>
   ${b?`<div class="big"><div><b>${fmt(Math.round(k))}</b><span>km línea recta</span></div><div><b>${fmt(Math.round(k*ROAD))}</b><span>km carretera aprox.</span></div><div><b>${hrs(k)}</b><span>tiempo aprox.</span></div></div>
-  <p class="note">Distancia entre los centros de cada municipio. La carretera se estima como recta × ${ROAD} a ${SPEED} km/h promedio.</p>
+  <p class="note">Distancia entre los centros de cada municipio. La carretera se estima como recta × ${ROAD} a ${CFG.spd} km/h promedio (ajustable en el planificador).</p>
   <div class="row2"><button class="btn" id="swap">Invertir origen y destino</button></div>`:''}
   <div class="sec"><h2>Distancias desde ${a.n}</h2><button class="btn" id="copy">Copiar CSV</button></div>
   <div class="row2" style="margin-bottom:8px">${[['estado','Todo '+a.s],['asignados','Con inmuebles (país)'],...(S.gestor?[['gestor','Cartera de '+S.gestor]]:[])].map(([v,l])=>`<button class="chip seg" aria-pressed="${scope===v}" data-scope="${v}">${l}</button>`).join('')}</div>
@@ -447,48 +478,239 @@ function tabDist(){
 function copyText(t,btn){const done=()=>{const o=btn.textContent;btn.textContent='Copiado';setTimeout(()=>btn.textContent=o,1500)};
   navigator.clipboard?.writeText(t).then(done).catch(()=>{const ta=document.createElement('textarea');ta.value=t;document.body.append(ta);ta.select();try{document.execCommand('copy');done()}catch(_){}ta.remove()})}
 
-// ruta: vecino más cercano + 2-opt
+// ruta: vecino más cercano + 2-opt (ids[0] puede ser la base)
 function route(ids,base,loop){
-  const n=ids.length;if(n<2)return{order:ids.slice(),total:0,legs:[]};
+  const n=ids.length;if(n<2)return{order:ids.slice()};
   const D=ids.map(a=>ids.map(b=>a===b?0:km(a,b)));
-  let cur=ids.indexOf(base);const seen=new Set([cur]);const ord=[cur];
+  let cur=Math.max(0,ids.indexOf(base));const seen=new Set([cur]);const ord=[cur];
   while(ord.length<n){let best=-1,bd=1e9;for(let j=0;j<n;j++)if(!seen.has(j)&&D[cur][j]<bd){bd=D[cur][j];best=j}seen.add(best);ord.push(best);cur=best}
-  const len=o=>{let s=0;for(let i=1;i<o.length;i++)s+=D[o[i-1]][o[i]];return s+(loop?D[o[o.length-1]][o[0]]:0)};
   let improved=true,it=0;
-  while(improved&&it++<60){improved=false;for(let i=1;i<n-1;i++)for(let j=i+1;j<n;j++){
-    const a=ord[i-1],b=ord[i],c=ord[j],d=ord[(j+1)%n];
-    const before=D[a][b]+((j+1<n||loop)?D[c][d]:0),after=D[a][c]+((j+1<n||loop)?D[b][d]:0);
+  while(improved&&it++<80){improved=false;for(let i=1;i<n-1;i++)for(let j=i+1;j<n;j++){
+    const a=ord[i-1],b=ord[i],c=ord[j],d=ord[(j+1)%n];const closes=j+1<n||loop;
+    const before=D[a][b]+(closes?D[c][d]:0),after=D[a][c]+(closes?D[b][d]:0);
     if(after+1e-9<before){ord.splice(i,j-i+1,...ord.slice(i,j+1).reverse());improved=true}}}
-  const order=ord.map(i=>ids[i]);const legs=order.map((id,i)=>i?D[ord[i-1]][ord[i]]:0);
-  return{order,total:len(ord),legs,loop,back:loop?D[ord[n-1]][ord[0]]:0};
+  return{order:ord.map(i=>ids[i])};
 }
+
+// ---------- planificador de jornadas ----------
+const LS='atlas-planner-v1';
+const CFG={hpd:9,vis:40,spd:75,hini:'08:00',habiles:true,modo:'auto',start:null};
+try{Object.assign(CFG,JSON.parse(localStorage.getItem(LS)||'{}'))}catch(_){}
+const saveCfg=()=>{try{localStorage.setItem(LS,JSON.stringify(CFG))}catch(_){}};
+const EXC=new Map(); // gestor -> municipios quitados del plan
+const exc=g=>{if(!EXC.has(g))EXC.set(g,new Set());return EXC.get(g)};
+const dh=(a,b)=>a===b?0:km(a,b)*ROAD/CFG.spd;      // horas de manejo
+const dk=(a,b)=>a===b?0:km(a,b)*ROAD;              // km carretera aprox.
+const hhmm=h=>{const m=Math.round(h*60);return `${Math.floor(m/60)} h ${String(m%60).padStart(2,'0')}`};
+const clock=h=>{const [H,Mi]=CFG.hini.split(':').map(Number);const m=Math.round(H*60+Mi+h*60);return `${String(Math.floor(m/60)%24).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`};
+function nextMonday(){const d=new Date();d.setDate(d.getDate()+((8-d.getDay())%7||7));return d.toISOString().slice(0,10)}
+let PLAN=null;
+
+function buildPlan(g){
+  const x=AG.g.get(g);if(!x)return null;
+  const E=exc(g),base=S.base,B=CFG.hpd,V=CFG.vis/60;
+  const ids=[...x.muns.keys()].filter(id=>!E.has(id));
+  const cnt=id=>x.muns.get(id);
+  const near=[],far=[];
+  for(const id of ids){
+    if(id===base)near.push(id);
+    else if(CFG.modo==='gira')far.push(id);
+    // regreso diario solo si el viaje redondo es ≤ 45% de la jornada y sus inmuebles caben en un día; si no, conviene pernoctar
+    else if(CFG.modo==='diario'||(2*dh(base,id)<=B*.45&&2*dh(base,id)+cnt(id)*V<=B))near.push(id);
+    else far.push(id);
+  }
+  const trips=[];
+  // 1) cercanos: días dedicados a municipios grandes + viajes de un día por ahorros (Clarke-Wright)
+  const pend=[];
+  for(const id of near){
+    let n=cnt(id);const cap=Math.max(1,Math.floor((B-2*dh(base,id))/V+1e-9));
+    if(n>cap){const k=Math.ceil(n/cap);for(let i=0;i<k;i++){const q=Math.round(n*(i+1)/k)-Math.round(n*i/k);trips.push({kind:'local',stops:[{id,n:q}]})}}
+    else pend.push({id,n});
+  }
+  const rt=r=>{let t=dh(base,r[0].id)+dh(r[r.length-1].id,base);for(let i=1;i<r.length;i++)t+=dh(r[i-1].id,r[i].id);return t+r.reduce((a,s)=>a+s.n*V,0)};
+  const where=new Map(pend.map(s=>[s,[s]]));
+  const sv=[];
+  for(let i=0;i<pend.length;i++)for(let j=i+1;j<pend.length;j++){const a=pend[i],b=pend[j];sv.push([dh(base,a.id)+dh(base,b.id)-dh(a.id,b.id),a,b])}
+  sv.sort((p,q)=>q[0]-p[0]);
+  for(const [s,a,b] of sv){
+    if(s<=0)break;
+    const ra=where.get(a),rb=where.get(b);if(ra===rb)continue;
+    const aE=ra[ra.length-1]===a,aS=ra[0]===a,bE=rb[rb.length-1]===b,bS=rb[0]===b;
+    if(!(aE||aS)||!(bE||bS))continue;
+    const m=(aE?ra:ra.slice().reverse()).concat(bS?rb:rb.slice().reverse());
+    if(rt(m)>B)continue;
+    m.forEach(st=>where.set(st,m));
+  }
+  // lo que queda en la propia base se suma a la primera salida donde quepa
+  const bs=pend.find(st=>st.id===base);
+  if(bs&&where.get(bs).length===1){const tgt=[...new Set(where.values())].filter(r=>r!==where.get(bs)).find(r=>rt([bs,...r])<=B);if(tgt){where.delete(bs);tgt.unshift(bs)}}
+  for(const r of new Set(where.values())){
+    const byId=new Map(r.map(s=>[s.id,s]));
+    const ord=route([base,...r.map(s=>s.id).filter(i=>i!==base)],base,true).order.filter(i=>i!==base);
+    const stops=ord.map(i=>byId.get(i));if(byId.has(base))stops.unshift(byId.get(base));
+    trips.push({kind:'dia',stops});
+  }
+  const ang=t=>{const p=M.get(t.stops[0].id).properties,b=M.get(base).properties;return Math.atan2(p.cy-b.cy,p.cx-b.cx)};
+  trips.sort((a,b)=>ang(a)-ang(b));
+  // 2) lejanos: agrupar zonas (enlace simple ≤ 2.5 h entre municipios) y armar giras con pernocta
+  const parent=new Map(far.map(i=>[i,i]));const find=i=>parent.get(i)===i?i:(parent.set(i,find(parent.get(i))),parent.get(i));
+  for(let i=0;i<far.length;i++)for(let j=i+1;j<far.length;j++)if(dh(far[i],far[j])<=2.5)parent.set(find(far[i]),find(far[j]));
+  const cl=d3.groups(far,find).map(d=>d[1]).sort((a,b)=>d3.min(a,i=>dh(base,i))-d3.min(b,i=>dh(base,i)));
+  let gi=0;
+  for(const c of cl){
+    const ord=route([base,...c],base,true).order.filter(i=>i!==base);
+    const big=d3.greatest(c,i=>cnt(i));
+    trips.push({kind:'gira',name:`Gira ${++gi} · ${M.get(big).properties.n}${c.length>1?` y ${c.length-1} más`:''}`,stops:ord.map(id=>({id,n:cnt(id)}))});
+  }
+  // 3) simular jornadas: manejo + visitas dentro del límite de horas
+  const days=[];
+  for(const tr of trips){
+    let pos=base,t=0,d;
+    const open=()=>{d={trip:tr,from:pos,items:[],km:0,drive:0,visit:0,n:0};days.push(d);t=0};
+    const close=at=>{d.end=at;d.hours=t};
+    open();
+    const transfer=(to,back)=>{ // tramo más largo que una jornada: día propio de traslado
+      if(t>0){close(pos);open()}
+      const h=dh(pos,to);d.transfer=true;d.items.push({type:'drive',to,at:0,h,km:dk(pos,to),back});d.drive+=h;d.km+=dk(pos,to);t=h;pos=to;
+      if(!back){close(pos);open()}
+    };
+    for(const s of tr.stops){
+      const h=dh(pos,s.id);
+      if(h>B&&tr.kind==='gira'){transfer(s.id,false)}
+      else if(t>0&&t+h+V>B){close(pos);open()}
+      if(s.id!==pos){d.items.push({type:'drive',to:s.id,at:t,h,km:dk(pos,s.id)});t+=h;d.drive+=h;d.km+=dk(pos,s.id);pos=s.id}
+      let n=s.n,done=s.from||0;
+      while(n>0){
+        let can=Math.floor((B-t)/V+1e-9);
+        if(can<=0){close(pos);open();can=Math.max(1,Math.floor(B/V))}
+        const take=Math.min(n,can);
+        d.items.push({type:'visit',id:s.id,n:take,from:done,at:t,h:take*V});t+=take*V;d.visit+=take*V;d.n+=take;n-=take;done+=take;
+      }
+    }
+    if(pos!==base&&dh(pos,base)>B&&tr.kind==='gira'){transfer(base,true)}
+    else if(pos!==base){
+      const h=dh(pos,base);
+      if(t>0&&t+h>B&&tr.kind==='gira'){close(pos);open()}
+      d.items.push({type:'drive',to:base,at:t,h,km:dk(pos,base),back:true});t+=h;d.drive+=h;d.km+=dk(pos,base);
+    }
+    close(base);
+  }
+  // índice de inmuebles ya visitados por municipio (para partir municipios grandes en varios días)
+  const seenN=new Map();
+  for(const d of days)for(const it of d.items)if(it.type==='visit'){it.from=seenN.get(it.id)||0;seenN.set(it.id,it.from+it.n)}
+  // fechas
+  if(!CFG.start)CFG.start=nextMonday();
+  let dt=new Date(CFG.start+'T12:00:00');
+  for(const d of days){
+    if(CFG.habiles)while(dt.getDay()===0||dt.getDay()===6)dt.setDate(dt.getDate()+1);
+    d.date=new Date(dt);dt.setDate(dt.getDate()+1);
+  }
+  return{days,trips,base,B,ids};
+}
+
+const dfmt=new Intl.DateTimeFormat('es-MX',{weekday:'short',day:'numeric',month:'short'});
+const inmOf=(g,id)=>ROWS.filter(r=>r[C.cve]===id&&r[C.gestor]===g&&S.proy.has(r[C.proyecto])&&S.est.has(r[C.estatus])).sort((a,b)=>a[C.nombre].localeCompare(b[C.nombre]));
+const place=id=>{const p=M.get(id).properties;return `${p.n}, ${p.s}, México`};
+function gmaps(d){
+  const pts=[d.from,...d.items.filter(i=>i.type==='drive').map(i=>i.to)];
+  const u=[...new Set(pts)].length<2?null:pts;
+  if(!u)return null;
+  const mid=u.slice(1,-1).slice(0,9);
+  return `https://www.google.com/maps/dir/?api=1&travelmode=driving&origin=${encodeURIComponent(place(u[0]))}&destination=${encodeURIComponent(place(u[u.length-1]))}${mid.length?'&waypoints='+encodeURIComponent(mid.map(place).join('|')):''}`;
+}
+const cap=t=>t.charAt(0).toUpperCase()+t.slice(1);
+const kindLbl=d=>d.transfer?`Traslado largo · ${d.trip.name}`:d.trip.kind==='gira'?d.trip.name:d.trip.kind==='local'?'Jornada local':'Viaje de un día';
+
 function tabRuta(){
   const tb=$('#tb');
-  if(!S.gestor){ROUTE=null;tb.innerHTML=`<div class="empty"><b>Elige un gestor</b>Selecciona un gestor en la lista para pintar sus municipios, trazar una ruta de visita sugerida y ver la matriz de distancias de su cartera.</div>${resumenGestores()}`;bindRows();drawOverlay();return}
-  const x=AG.g.get(S.gestor);if(!x||!x.muns.size){tb.innerHTML=`<div class="empty"><b>${S.gestor}</b>Sin inmuebles con los filtros actuales.</div>`;ROUTE=null;drawOverlay();return}
-  const ids=[...x.muns.keys()].sort((a,b)=>x.muns.get(b)-x.muns.get(a));
-  if(!S.base||!x.muns.has(S.base))S.base=ids[0];
-  const loop=S.loop!==false;
-  ROUTE=route(ids,S.base,loop);
-  const c=GC.get(S.gestor);
-  const far=d3.max(ids,a=>d3.max(ids,b=>km(a,b)));
-  const mids=ROUTE.order.slice(0,30);
-  const col=d3.scaleSequential(d3.interpolateRgb('transparent',c)).domain([0,far||1]);
-  tb.innerHTML=`<h3 style="color:${c}">${S.gestor}</h3><div class="meta">${[...x.edos].join(' · ')}</div>
-  <div class="stats"><div class="stat"><b>${fmt(x.n)}</b><span>inmuebles</span></div><div class="stat"><b>${x.muns.size}</b><span>municipios</span></div><div class="stat"><b>${fmt(Math.round(far||0))}</b><span>km máx. entre 2</span></div></div>
-  <div class="sec"><h2>Ruta sugerida</h2><span class="note">base: ${M.get(S.base).properties.n}</span></div>
-  <div class="big"><div><b>${fmt(Math.round(ROUTE.total))}</b><span>km recta</span></div><div><b>${fmt(Math.round(ROUTE.total*ROAD))}</b><span>km carretera aprox.</span></div><div><b>${hrs(ROUTE.total)}</b><span>manejo aprox.</span></div></div>
-  <div class="row2" style="margin-bottom:6px"><label class="note"><input type="checkbox" id="loop" ${loop?'checked':''}> Regresar a la base</label><label class="note">Base <select id="base">${ids.map(id=>`<option value="${id}" ${id===S.base?'selected':''}>${M.get(id).properties.n} (${x.muns.get(id)})</option>`).join('')}</select></label></div>
-  <div>${ROUTE.order.map((id,i)=>{const p=M.get(id).properties;return `<div class="stop" data-stop="${id}"><span class="k" style="background:${i?c:'var(--ink)'}">${i?i:'B'}</span><span>${p.n}<small>${p.s} · ${x.muns.get(id)} inm.</small></span><span class="note" style="font-family:var(--f-mono)">${i?'+'+fmt(Math.round(ROUTE.legs[i]))+' km':'salida'}</span></div>`}).join('')}
-  ${loop&&ROUTE.order.length>1?`<div class="stop"><span class="k" style="background:var(--ink)">B</span><span>Regreso a ${M.get(S.base).properties.n}</span><span class="note" style="font-family:var(--f-mono)">+${fmt(Math.round(ROUTE.back))} km</span></div>`:''}</div>
-  <p class="note">Orden calculado con vecino más cercano + mejora 2-opt sobre distancias en línea recta.</p>
-  <div class="sec"><h2>Matriz de distancias (km)</h2><button class="btn" id="copym">Copiar CSV</button></div>
-  <div class="tblwrap"><table class="matrix"><thead><tr><th></th>${mids.map((id,i)=>`<th title="${M.get(id).properties.n}">${i?i:'B'}</th>`).join('')}</tr></thead><tbody>${mids.map((a,i)=>`<tr><th class="rh" title="${M.get(a).properties.n}">${i?i:'B'} ${M.get(a).properties.n}</th>${mids.map(b=>{const k=km(a,b);return `<td style="background:${a===b?'transparent':col(k)}">${a===b?'·':Math.round(k)}</td>`}).join('')}</tr>`).join('')}</tbody></table></div>
-  ${ids.length>30?`<p class="note">Matriz con las primeras 30 paradas; el CSV incluye los ${ids.length} municipios.</p>`:''}`;
-  $('#loop').onchange=e=>{S.loop=e.target.checked;renderTab();drawOverlay()};
-  $('#base').onchange=e=>{S.base=e.target.value;renderTab();drawOverlay()};
-  $('#copym').onclick=e=>{const o=ROUTE.order;copyText([['municipio',...o.map(id=>`"${M.get(id).properties.n}"`)].join(','),...o.map(a=>[`"${M.get(a).properties.n}"`,...o.map(b=>km(a,b).toFixed(1))].join(','))].join('\n'),e.target)};
+  if(!S.gestor){PLAN=null;tb.innerHTML=`<div class="empty"><b>Elige un gestor</b>Selecciona un gestor en la lista para armar su plan de visitas por jornadas: viajes de un día, giras con pernocta, horarios y fechas.</div>${resumenGestores()}`;bindRows();drawOverlay();return}
+  const g=S.gestor,x=AG.g.get(g);
+  if(!x||!x.muns.size){tb.innerHTML=`<div class="empty"><b>${g}</b>Sin inmuebles con los filtros actuales.</div>`;PLAN=null;drawOverlay();return}
+  const all=[...x.muns.keys()].sort((a,b)=>x.muns.get(b)-x.muns.get(a));
+  if(!S.base||!M.has(S.base))S.base=all[0];
+  PLAN=buildPlan(g);
+  const c=GC.get(g),E=exc(g),days=PLAN.days;
+  if(S.day!=null&&S.day>=days.length)S.day=null;
+  const tot={km:d3.sum(days,d=>d.km),drive:d3.sum(days,d=>d.drive),visit:d3.sum(days,d=>d.visit),n:d3.sum(days,d=>d.n)};
+  const nGira=PLAN.trips.filter(t=>t.kind==='gira').length,nights=days.filter(d=>d.end!==PLAN.base).length,longs=days.filter(d=>!d.transfer&&d.hours>CFG.hpd+.01).length,trans=days.filter(d=>d.transfer).length;
+  const last=days.length?days[days.length-1].date:null;
+  const baseOpts=[...new Set([S.base,...all])].map(id=>`<option value="${id}" ${id===S.base?'selected':''}>${M.get(id).properties.n}${x.muns.has(id)?` (${x.muns.get(id)})`:''}</option>`).join('');
+  const byEdo=d3.groups(all,id=>M.get(id).properties.s);
+  tb.innerHTML=`<h3 style="color:${c}">${g}</h3><div class="meta">${[...x.edos].join(' · ')}</div>
+  <div class="cfg">
+    <label>Base de salida<select id="c-base">${baseOpts}</select></label>
+    <label>Tipo de plan<select id="c-modo">
+      <option value="auto" ${CFG.modo==='auto'?'selected':''}>Automático: días + giras</option>
+      <option value="diario" ${CFG.modo==='diario'?'selected':''}>Regresar a la base diario</option>
+      <option value="gira" ${CFG.modo==='gira'?'selected':''}>Una sola gira continua</option></select></label>
+    <label>Primer día<input type="date" id="c-start" value="${CFG.start||nextMonday()}"></label>
+    <label>Hora de salida<input type="time" id="c-hini" value="${CFG.hini}"></label>
+    <label>Horas por jornada<input type="number" id="c-hpd" min="4" max="14" step="0.5" value="${CFG.hpd}"></label>
+    <label>Min. por inmueble<input type="number" id="c-vis" min="5" max="240" step="5" value="${CFG.vis}"></label>
+    <label>Velocidad prom. km/h<input type="number" id="c-spd" min="30" max="110" step="5" value="${CFG.spd}"></label>
+    <label class="chk"><input type="checkbox" id="c-hab" ${CFG.habiles?'checked':''}> Solo días hábiles</label>
+  </div>
+  <div class="big"><div><b>${days.length}</b><span>jornadas</span></div><div><b>${fmt(Math.round(tot.km))}</b><span>km carretera aprox.</span></div><div><b>${Math.round(tot.drive)} h</b><span>de manejo</span></div></div>
+  <p class="note">${fmt(tot.n)} inmuebles en ${PLAN.ids.length} municipios · ${PLAN.trips.filter(t=>t.kind!=='gira').length} salidas de un día · ${nGira} gira${nGira===1?'':'s'} · ${nights} noche${nights===1?'':'s'} fuera · ${Math.round(tot.visit)} h de visita${trans?` · ${trans} traslado${trans>1?'s':''} largo${trans>1?'s':''} (considera vuelo)`:''}${last?` · termina el ${dfmt.format(last)}`:''}${longs?` · <b style="color:var(--warn)">${longs} jornada${longs>1?'s':''} excede${longs>1?'n':''} el límite</b>`:''}</p>
+  <div class="row2" style="margin:8px 0 4px"><button class="btn pri" id="copyplan">Copiar plan (CSV)</button>${S.day!=null?`<button class="btn" id="alldays">Ver todas las jornadas</button>`:''}</div>
+  <details class="incl"><summary>Municipios en el plan: ${PLAN.ids.length} de ${all.length}</summary>
+    <p class="note">También puedes quitar o agregar un municipio dando clic sobre él en el mapa.</p>
+    <div class="row2" style="margin:6px 0"><button class="btn" id="inc-all">Todos</button><button class="btn" id="inc-none">Ninguno</button></div>
+    ${byEdo.map(([s,l])=>`<div class="lbl" style="margin:8px 0 2px">${s}</div>${l.map(id=>`<label class="mrow"><input type="checkbox" data-inc="${id}" ${E.has(id)?'':'checked'}> ${M.get(id).properties.n} <span class="note">${x.muns.get(id)} inm. · ${fmt(Math.round(dk(S.base,id)))} km</span></label>`).join('')}`).join('')}
+  </details>
+  <div class="sec"><h2>Itinerario</h2><span class="note">base: ${M.get(S.base).properties.n}</span></div>
+  ${days.map((d,i)=>dayCard(d,i,c,g)).join('')||'<p class="note">Sin municipios en el plan.</p>'}
+  <p class="note" style="margin-top:12px">Cómo se arma: los municipios que se pueden atender yendo y regresando el mismo día se agrupan en salidas de un día (algoritmo de ahorros). Los lejanos, o los que tienen muchos inmuebles, se agrupan por zona en giras con pernocta para no repetir el viaje cada día. El orden de cada salida se optimiza (vecino más cercano + 2-opt). Distancias entre centros municipales × ${ROAD}; confirma tiempos reales con el enlace de Google Maps de cada día.</p>
+  <details class="incl"><summary>Matriz de distancias (km carretera aprox.)</summary>${matrix(all.slice(0,30),c)}</details>`;
+  const set=(k,v)=>{CFG[k]=v;saveCfg();S.day=null;renderTab();drawOverlay()};
+  $('#c-base').onchange=e=>{S.base=e.target.value;S.day=null;renderTab();drawOverlay()};
+  $('#c-modo').onchange=e=>set('modo',e.target.value);
+  $('#c-start').onchange=e=>e.target.value&&set('start',e.target.value);
+  $('#c-hini').onchange=e=>e.target.value&&set('hini',e.target.value);
+  $('#c-hab').onchange=e=>set('habiles',e.target.checked);
+  [['hpd',4,14],['vis',5,240],['spd',30,110]].forEach(([k,lo,hi])=>$('#c-'+k).onchange=e=>{const v=+e.target.value;if(v>=lo&&v<=hi)set(k,v);else e.target.value=CFG[k]});
+  tb.querySelectorAll('[data-inc]').forEach(el=>el.onchange=()=>{el.checked?E.delete(el.dataset.inc):E.add(el.dataset.inc);keepOpen(()=>{renderTab();paint();drawOverlay()})});
+  $('#inc-all').onclick=()=>{E.clear();keepOpen(()=>{renderTab();paint();drawOverlay()})};
+  $('#inc-none').onclick=()=>{all.forEach(id=>E.add(id));keepOpen(()=>{renderTab();paint();drawOverlay()})};
+  tb.querySelectorAll('[data-day]').forEach(el=>el.onclick=()=>{const i=+el.dataset.day;S.day=S.day===i?null:i;renderTab();drawOverlay();if(S.day!=null){const d=days[i];zoomToIds([d.from,...d.items.map(t=>t.to||t.id)].filter(Boolean),14)}});
+  const ad=$('#alldays');if(ad)ad.onclick=()=>{S.day=null;renderTab();drawOverlay();zoomToIds(PLAN.ids.concat(S.base),20)};
+  $('#copyplan').onclick=e=>copyText(planCSV(g),e.target);
   bindRows();drawOverlay();
+}
+function keepOpen(fn){const o=[...document.querySelectorAll('details.incl')].map(d=>d.open);const st=$('#tb').scrollTop;fn();document.querySelectorAll('details.incl').forEach((d,i)=>d.open=!!o[i]);$('#tb').scrollTop=st}
+function dayCard(d,i,c,g){
+  const on=S.day===i,over=!d.transfer&&d.hours>CFG.hpd+.01,gm=gmaps(d);
+  const rows=[`<div class="tl"><span class="hr">${clock(0)}</span><span>Sale de <b>${M.get(d.from).properties.n}</b>${d.from!==S.base?' (pernocta)':''}</span></div>`];
+  for(const it of d.items){
+    if(it.type==='drive')rows.push(`<div class="tl drv"><span class="hr"></span><span class="note">${it.back?'Regreso':'Manejo'} ${fmt(Math.round(it.km))} km · ${hhmm(it.h)}</span></div>`+(it.back?`<div class="tl"><span class="hr">${clock(it.at+it.h)}</span><span>Llega a <b>${M.get(it.to).properties.n}</b> (base)</span></div>`:''));
+    else{const L=inmOf(g,it.id).slice(it.from,it.from+it.n);
+      rows.push(`<div class="tl"><span class="hr">${clock(it.at)}</span><span><b>${M.get(it.id).properties.n}</b> · ${it.n} inmueble${it.n>1?'s':''} · ${hhmm(it.h)}${on?`<small class="inl">${L.map(r=>esc(r[C.nombre])).join(' · ')}</small>`:''}</span></div>`)}
+  }
+  if(d.end!==S.base)rows.push(`<div class="tl"><span class="hr">${clock(d.hours)}</span><span>Pernocta en <b>${M.get(d.end).properties.n}</b></span></div>`);
+  return `<div class="day ${on?'on':''}" style="--gc:${c}">
+    <button class="dh" data-day="${i}"><span class="dn">${i+1}</span><span><b>${cap(dfmt.format(d.date))}</b><small>${kindLbl(d)}</small></span><span class="dm">${fmt(Math.round(d.km))} km<small style="${over?'color:var(--warn);font-weight:600':''}">${hhmm(d.hours)}${over?' ⚠':''}</small></span></button>
+    ${on?`<div class="tlw">${rows.join('')}${gm?`<a class="btn" href="${gm}" target="_blank" rel="noopener">Abrir ruta en Google Maps</a>`:''}${d.transfer?`<p class="note">Tramo de más de ${CFG.hpd} h de manejo: considera vuelo o una pernocta en ruta.</p>`:''}${over?`<p class="note" style="color:var(--warn)">Esta jornada pasa de ${CFG.hpd} h: el trayecto o el municipio no caben en un día. Considera otra base o quitar inmuebles.</p>`:''}</div>`:`<div class="dsum note">${d.transfer?`${M.get(d.from).properties.n} → ${M.get(d.end).properties.n}`:[...new Set(d.items.filter(t=>t.type==='visit').map(t=>M.get(t.id).properties.n))].join(' → ')+` · ${d.n} inm.`}</div>`}
+  </div>`;
+}
+function matrix(ids,c){
+  const far=d3.max(ids,a=>d3.max(ids,b=>dk(a,b)))||1;
+  const col=d3.scaleSequential(d3.interpolateRgb('transparent',c)).domain([0,far]);
+  return `<div class="tblwrap"><table class="matrix"><thead><tr><th></th>${ids.map((id,i)=>`<th title="${M.get(id).properties.n}">${i+1}</th>`).join('')}</tr></thead><tbody>${ids.map((a,i)=>`<tr><th class="rh" title="${M.get(a).properties.n}">${i+1} ${M.get(a).properties.n}</th>${ids.map(b=>`<td style="background:${a===b?'transparent':col(dk(a,b))}">${a===b?'·':Math.round(dk(a,b))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function planCSV(g){
+  const L=['jornada,fecha,tipo,hora,accion,municipio,estado,inmuebles,km,horas'];
+  const q=s=>`"${String(s).replace(/"/g,'""')}"`;
+  PLAN.days.forEach((d,i)=>{
+    const f=d.date.toISOString().slice(0,10),k=q(kindLbl(d));
+    L.push([i+1,f,k,clock(0),'salida',q(M.get(d.from).properties.n),q(M.get(d.from).properties.s),'','',''].join(','));
+    for(const it of d.items){
+      if(it.type==='drive')L.push([i+1,f,k,clock(it.at),it.back?'regreso':'manejo',q(M.get(it.to).properties.n),q(M.get(it.to).properties.s),'',it.km.toFixed(0),it.h.toFixed(2)].join(','));
+      else{const names=inmOf(g,it.id).slice(it.from,it.from+it.n).map(r=>r[C.id]+' '+r[C.nombre]).join('; ');
+        L.push([i+1,f,k,clock(it.at),'visita',q(M.get(it.id).properties.n),q(M.get(it.id).properties.s),q(names),'',it.h.toFixed(2)].join(','))}
+    }
+    if(d.end!==S.base)L.push([i+1,f,k,clock(d.hours),'pernocta',q(M.get(d.end).properties.n),q(M.get(d.end).properties.s),'','',''].join(','));
+  });
+  return L.join('\n');
 }
 
 function refresh(){aggregate();kpis();glist();paint();renderTab();drawOverlay()}

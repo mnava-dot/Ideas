@@ -110,6 +110,9 @@ A={
 ('VERACRUZ','TEJERIA'):(None,'VERACRUZ'),
 ('VERACRUZ','TEPEZINTLA'):(None,'TEPETZINTLA'),
 }
+# Reglas de asignación por estado (clave INEGI de entidad): mandan sobre la columna GESTOR 2027 del Excel
+REGLAS={'03':'JC',      # Baja California Sur (Los Cabos, Loreto, La Paz...) la atiende JC
+        '13':'GERARDO'} # Todo Hidalgo lo atiende GERARDO
 wb=openpyxl.load_workbook(sys.argv[1],read_only=True,data_only=True)
 rows=list(wb['OPERACIONES'].iter_rows(values_only=True))[1:]
 out=[];miss=collections.Counter()
@@ -128,8 +131,10 @@ for r in rows:
     if not code:
         # VERACRUZ BENITO JUAREZ address is Veracruz city when CP 917xx; keep official BENITO JUAREZ otherwise
         miss[(st,mu)]+=1
-    out.append([r[1],fmt(r[5]),fmt(r[6]),fmt(r[0]),fmt(r[12]),fmt(r[4]),fmt(r[50]).strip(),fmt(r[51]),code or '',fmt(r[10])[:220],fmt(r[11]),fmt(r[7]),fmt(r[8]),fmt(r[9])])
+    g_xls=fmt(r[50]).strip()
+    g=REGLAS.get((code or '')[:2],g_xls)
+    out.append([r[1],fmt(r[5]),fmt(r[6]),fmt(r[0]),fmt(r[12]),fmt(r[4]),g,fmt(r[51]),code or '',fmt(r[10])[:220],fmt(r[11]),fmt(r[7]),fmt(r[8]),fmt(r[9]),g_xls if g!=g_xls else ''])
 print('unmatched',miss, file=sys.stderr)
-cols=['id','nombre','tipo','proyecto','estatus','cr','gestor','nota','cve','direccion','subclas','division','estado_xls','mun_xls']
+cols=['id','nombre','tipo','proyecto','estatus','cr','gestor','nota','cve','direccion','subclas','division','estado_xls','mun_xls','gestor_xls']
 json.dump({'cols':cols,'rows':out,'fuente':'ASIGNACION_GESTORES_2027.xlsx · hoja OPERACIONES','generado':datetime.date.today().isoformat()},open(sys.argv[3],'w'),ensure_ascii=False,separators=(',',':'))
 print(len(out),'rows',sum(1 for o in out if o[8]),'matched',len(set(o[8] for o in out if o[8])),'municipios',file=sys.stderr)

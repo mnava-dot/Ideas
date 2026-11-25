@@ -34,7 +34,7 @@ header.top{display:flex;flex-wrap:wrap;align-items:center;gap:12px 24px}
 .kpis{display:flex;gap:20px;flex-wrap:wrap}
 .kpi b{display:block;font-family:var(--f-display);font-stretch:85%;font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
 .kpi span{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
-.search{position:relative;margin-left:auto;min-width:0;flex:0 1 320px}
+.search{position:relative;margin-left:auto;min-width:0;flex:0 1 280px}
 .search input{width:100%;padding:9px 12px 9px 34px;border:1px solid var(--line);border-radius:999px;background:var(--panel)}
 .search svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:15px;height:15px;stroke:var(--muted);fill:none;stroke-width:2}
 .results{position:absolute;z-index:30;left:0;right:0;top:calc(100% + 4px);background:var(--panel);border:1px solid var(--line);border-radius:var(--r);box-shadow:0 10px 30px rgba(0,0,0,.18);overflow:hidden}
@@ -152,6 +152,11 @@ details.incl summary{cursor:pointer;font-weight:600;font-size:12px}
 .tl.drv span.note{border-left:2px dotted var(--line);padding-left:8px;margin-left:2px}
 .tl .inl{display:block;color:var(--muted);font-size:11px;margin-top:2px}
 .tlw a.btn{align-self:flex-start;margin-top:6px;text-decoration:none;color:var(--ink)}
+.segc{display:flex;border:1px solid var(--line);border-radius:999px;background:var(--panel);padding:3px;gap:2px}
+.segc button{border:0;background:none;border-radius:999px;padding:6px 14px;font-family:var(--f-display);font-stretch:85%;font-weight:700;font-size:13px;letter-spacing:.03em;color:var(--muted);display:flex;gap:6px;align-items:baseline}
+.segc button small{font-family:var(--f-mono);font-weight:400;font-size:11px}
+.segc button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.stat b small{font-size:10px;font-family:var(--f-body);color:var(--muted)}
 @media (max-width:1100px){.main{grid-template-columns:220px minmax(0,1fr)}.panel{grid-column:1/-1;max-height:none}}
 @media (max-width:720px){
   html,body{height:auto}
@@ -172,6 +177,7 @@ details.incl summary{cursor:pointer;font-weight:600;font-size:12px}
       <h1>Atlas de Gestores 2027</h1>
       <p id="fuente">Asignación por municipio · límites INEGI 2023</p>
     </div>
+    <div class="segc" id="segcli" role="group" aria-label="Cliente"></div>
     <div class="kpis" id="kpis"></div>
     <div class="search">
       <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
@@ -247,7 +253,7 @@ feats.forEach(f=>{f.properties.q=norm(f.properties.n+' '+f.properties.s)});
 const gcount=d3.rollup(ROWS,v=>v.length,r=>r[C.gestor]);
 const GESTORES=[...gcount.keys()].filter(Boolean).sort((a,b)=>(a==='PENDIENTE')-(b==='PENDIENTE')||gcount.get(b)-gcount.get(a));
 const GC=new Map(GESTORES.filter(g=>g!=='PENDIENTE').map((g,i)=>[g,PALETTE[i%PALETTE.length]]));GC.set('PENDIENTE','#8A8F98');
-const CLI=['BBVA','AXA'];
+const CLI=[...new Set(ROWS.map(r=>r[C.cliente]))];
 const PROY=[...new Set(ROWS.map(r=>r[C.proyecto]))];
 const EST=[...d3.rollup(ROWS,v=>v.length,r=>r[C.estatus])].sort((a,b)=>b[1]-a[1]).map(d=>d[0]);
 
@@ -265,7 +271,7 @@ function aggregate(){
   for(const r of ROWS){
     if(!ok(r))continue;
     const id=r[C.cve],gg=r[C.gestor];
-    if(id){let m=mun.get(id);if(!m)mun.set(id,m={n:0,byG:new Map()});m.n++;m.byG.set(gg,(m.byG.get(gg)||0)+1)}
+    if(id){let m=mun.get(id);if(!m)mun.set(id,m={n:0,byG:new Map(),byC:new Map()});m.n++;m.byG.set(gg,(m.byG.get(gg)||0)+1);m.byC.set(r[C.cliente],(m.byC.get(r[C.cliente])||0)+1)}
     let x=g.get(gg);if(!x)g.set(gg,x={n:0,muns:new Map(),edos:new Set()});x.n++;
     if(id){x.muns.set(id,(x.muns.get(id)||0)+1);x.edos.add(short(M.get(id).properties.s))}
   }
@@ -330,8 +336,9 @@ function paint(){
 }
 function legend(){
   const el=$('#legend');
-  if(S.gestor){const c=GC.get(S.gestor);el.innerHTML=`<div class="row"><b>${S.gestor}</b></div><div class="row"><span class="note">1 inm.</span><span class="scale" style="background:linear-gradient(90deg,${c}61,${c})"></span><span class="note">${fmt(d3.max([...(AG.g.get(S.gestor)?.muns.values()||[1])]))} inm.</span></div><div class="row note">Intensidad = inmuebles en el municipio</div>`}
-  else el.innerHTML=`<div class="row"><i style="background:${GC.get(GESTORES[0])}"></i>Color = gestor asignado</div><div class="row"><i style="background:repeating-linear-gradient(45deg,${GC.get(GESTORES[0])} 0 4px,${GC.get(GESTORES[4])} 4px 8px)"></i>Rayas = municipio compartido</div><div class="row"><i style="background:var(--land);border:1px solid var(--munline)"></i>Sin inmuebles</div>`;
+  const cliT=S.cli.size===CLI.length?'':`<div class="row"><b>Cliente: ${[...S.cli].join(', ')||'ninguno'}</b></div>`;
+  if(S.gestor){const c=GC.get(S.gestor);el.innerHTML=cliT+`<div class="row"><b>${S.gestor}</b></div><div class="row"><span class="note">1 inm.</span><span class="scale" style="background:linear-gradient(90deg,${c}61,${c})"></span><span class="note">${fmt(d3.max([...(AG.g.get(S.gestor)?.muns.values()||[1])]))} inm.</span></div><div class="row note">Intensidad = inmuebles en el municipio</div>`}
+  else el.innerHTML=cliT+`<div class="row"><i style="background:${GC.get(GESTORES[0])}"></i>Color = gestor asignado</div><div class="row"><i style="background:repeating-linear-gradient(45deg,${GC.get(GESTORES[0])} 0 4px,${GC.get(GESTORES[4])} 4px 8px)"></i>Rayas = municipio compartido</div><div class="row"><i style="background:var(--land);border:1px solid var(--munline)"></i>Sin inmuebles</div>`;
 }
 
 // tooltip
@@ -339,6 +346,7 @@ const tip=$('#tip');
 muns.on('pointermove',(e,f)=>{
   const p=f.properties,m=AG.mun.get(p.id);
   let h=`<b>${p.n}</b><span class="note">${p.s} · ${fmt(p.km2)} km²</span>`;
+  if(m)h+=`<div class="note">${[...m.byC].map(([c,n])=>`${c} ${n}`).join(' · ')}</div>`;
   if(m){h+=`<div class="gs">${[...m.byG].sort((a,b)=>b[1]-a[1]).map(([g,n])=>`<span><span class="dot" style="background:${GC.get(g)}"></span>${g} · ${n}</span>`).join('')}</div>`}
   else h+=`<div class="note">Sin inmuebles asignados</div>`;
   if(S.mun&&S.mun!==p.id){const k=km(S.mun,p.id);h+=`<div class="note" style="margin-top:4px">A ${M.get(S.mun).properties.n}: <b style="display:inline;font-size:12px">${fmt(Math.round(k))} km</b> recta · ~${fmt(Math.round(k*ROAD))} km carretera</div>`}
@@ -387,10 +395,10 @@ function drawOverlay(){
 function kpis(){
   const n=[...AG.mun.values()].reduce((s,m)=>s+m.n,0);
   const edos=new Set([...AG.mun.keys()].map(id=>M.get(id).properties.s));
-  $('#kpis').innerHTML=[[fmt(n),'inmuebles'],[fmt(AG.mun.size),'municipios'],[edos.size,'estados'],[GESTORES.filter(g=>g!=='PENDIENTE').length,'gestores']].map(([b,s])=>`<div class="kpi"><b>${b}</b><span>${s}</span></div>`).join('');
+  $('#kpis').innerHTML=[[fmt(n),'inmuebles'],[fmt(AG.mun.size),'municipios'],[edos.size,'estados'],[[...AG.g].filter(([g,x])=>g!=='PENDIENTE'&&x.n).length,'gestores']].map(([b,s])=>`<div class="kpi"><b>${b}</b><span>${s}</span></div>`).join('');
 }
 function glist(){
-  $('#glist').innerHTML=GESTORES.map(g=>{const x=AG.g.get(g)||{n:0,muns:new Map(),edos:new Set()};
+  $('#glist').innerHTML=GESTORES.map(g=>{const x=AG.g.get(g)||{n:0,muns:new Map(),edos:new Set()};if(!x.n&&S.cli.size<CLI.length)return '';
     return `<button class="g ${S.gestor===g?'on':''} ${S.gestor&&S.gestor!==g?'dim':''}" style="--gc:${GC.get(g)}" data-g="${g}"><span class="sw"></span><span class="nm">${g}<span class="sub">${x.muns.size} mpios · ${[...x.edos].join(', ')||'—'}</span></span><span class="ct">${fmt(x.n)}</span></button>`}).join('');
   document.querySelectorAll('.g').forEach(b=>b.onclick=()=>selectGestor(b.dataset.g===S.gestor?null:b.dataset.g));
 }
@@ -406,7 +414,14 @@ function chips(el,vals,set){
   $(el).innerHTML=vals.map(v=>`<button class="chip" aria-pressed="${set.has(v)}" data-v="${v}">${v.toLowerCase()} · ${counts.get(v)}</button>`).join('');
   $(el).querySelectorAll('.chip').forEach(b=>b.onclick=()=>{const v=b.dataset.v;set.has(v)?set.delete(v):set.add(v);b.setAttribute('aria-pressed',set.has(v));refresh()});
 }
-chips('#fcli',CLI,S.cli);chips('#fproy',PROY,S.proy);chips('#fest',EST,S.est);
+function segcli(){
+  const cnt=d3.rollup(ROWS,v=>v.length,r=>r[C.cliente]);
+  const all=S.cli.size===CLI.length;
+  $('#segcli').innerHTML=[['*','Todos',ROWS.length],...CLI.map(c=>[c,c,cnt.get(c)])].map(([v,l,n])=>`<button data-c="${v}" aria-pressed="${v==='*'?all:(!all&&S.cli.size===1&&S.cli.has(v))}">${l}<small>${fmt(n)}</small></button>`).join('');
+  $('#segcli').querySelectorAll('button').forEach(b=>b.onclick=()=>{S.cli.clear();(b.dataset.c==='*'?CLI:[b.dataset.c]).forEach(c=>S.cli.add(c));S.day=null;refresh()});
+  chips('#fcli',CLI,S.cli);
+}
+chips('#fproy',PROY,S.proy);chips('#fest',EST,S.est);
 
 // ---------- buscador ----------
 function search(input,box,onPick){
@@ -437,7 +452,7 @@ function tabMun(){
   const near=feats.filter(f=>f.properties.e===p.e&&f.properties.id!==S.mun).map(f=>[f.properties.id,km(S.mun,f.properties.id)]).sort((a,b)=>a[1]-b[1]).slice(0,8);
   const nearAssigned=[...AG.mun.keys()].filter(id=>id!==S.mun).map(id=>[id,km(S.mun,id)]).sort((a,b)=>a[1]-b[1]).slice(0,6);
   tb.innerHTML=`<h3>${p.n}</h3><div class="meta">${p.s} · clave INEGI ${p.id} · ${fmt(p.km2)} km²</div>
-  <div class="stats"><div class="stat"><b>${m?m.n:0}</b><span>inmuebles</span></div><div class="stat"><b>${m?m.byG.size:0}</b><span>gestores</span></div><div class="stat"><b>${near.length?fmt(Math.round(near[0][1])):'—'}</b><span>km al vecino</span></div></div>
+  <div class="stats"><div class="stat"><b>${m?m.n:0}</b><span>inmuebles</span></div><div class="stat"><b>${m?[...m.byC].map(([c,n])=>`${n}<small> ${c}</small>`).join(' '):0}</b><span>por cliente</span></div><div class="stat"><b>${near.length?fmt(Math.round(near[0][1])):'—'}</b><span>km al vecino</span></div></div>
   ${m?`<div class="row2">${[...m.byG].sort((a,b)=>b[1]-a[1]).map(([g,n])=>`<button class="btn" data-sg="${esc(g)}">${gtag(g)} · ${n}</button>`).join('')}</div>`:''}
   <div class="sec"><h2>Inmuebles</h2><span class="note">${rows.length}</span></div>
   ${rows.length?rows.map(r=>`<div class="inm"><div class="t"><b>${esc(r[C.nombre])}</b>${estPill(r[C.estatus])}</div><small>${r[C.id]} · CR ${r[C.cr]} · ${r[C.tipo].toLowerCase()} · ${r[C.proyecto].toLowerCase()} · ${gtag(r[C.gestor])}</small>${r[C.direccion]?`<small>${esc(r[C.direccion])}</small>`:''}<small><span class="pill">${r[C.cliente]}</span></small>${r[C.nota]?`<small>Nota: ${esc(r[C.nota])}</small>`:''}${r[C.criterio]?`<small>Gestor asignado por ${esc(r[C.criterio])}</small>`:''}${r[C.gestor_xls]?`<small style="color:var(--warn)">Reasignado a ${esc(r[C.gestor])}; en el Excel estaba con ${esc(r[C.gestor_xls])}</small>`:''}</div>`).join(''):'<p class="note">Sin inmuebles con los filtros actuales.</p>'}
@@ -720,7 +735,7 @@ function planCSV(g){
   return L.join('\n');
 }
 
-function refresh(){aggregate();kpis();glist();paint();renderTab();drawOverlay()}
+function refresh(){segcli();aggregate();kpis();glist();paint();renderTab();drawOverlay()}
 const sinUbicar=ROWS.filter(r=>!r[C.cve]).length;
 $('#fuente').textContent=`BBVA (${fmt(inm.rows.length)}) y AXA (${fmt(axa.rows.length)}) · límites municipales INEGI 2023${sinUbicar?` · ${sinUbicar} inmueble sin municipio reconocido`:''}`;
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>paint());

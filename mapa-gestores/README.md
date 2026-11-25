@@ -23,7 +23,7 @@ python3 -m http.server 8000   # abrir http://localhost:8000
 ## Actualizar los datos
 `tools/build_inmuebles.py` lee la hoja `OPERACIONES` del Excel de asignación y genera `data/inmuebles.json`,
 relacionando cada municipio con su clave INEGI (incluye una tabla de equivalencias para nombres como "CD VICTORIA" → Victoria).
-También aplica reglas de asignación por estado (`REGLAS`): Baja California Sur → JC, Hidalgo → GERARDO.
+También aplica reglas de asignación por estado (`REGLAS`): Baja California Sur → JC, Hidalgo → GERARDO, Chihuahua → BRENDA (se quita "BRENDA / CRIS").
 
 ```
 python3 tools/build_inmuebles.py ASIGNACION_GESTORES_2027.xlsx data/municipios.topo.json data/inmuebles.json

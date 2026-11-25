@@ -185,6 +185,8 @@ details.incl summary{cursor:pointer;font-weight:600;font-size:12px}
       <div class="gest-head"><h2>Gestores</h2><button class="btn" id="todos">Ver todos</button></div>
       <div class="gest-list" id="glist"></div>
       <div class="filters">
+        <span class="lbl">Cliente</span>
+        <div class="chips" id="fcli"></div>
         <span class="lbl">Proyecto</span>
         <div class="chips" id="fproy"></div>
         <span class="lbl">Estatus del inmueble</span>
@@ -227,25 +229,30 @@ const _nf=new Intl.NumberFormat('es-MX');const fmt=v=>_nf.format(v);
 const ROAD=1.3; // factor carretera sobre línea recta
 const PALETTE=['#E4572E','#2E86AB','#8E5BD0','#17A673','#E8A33D','#D6457A','#2BB3C0','#9C7A3C','#5C7CFA','#9AA82C','#C964D9','#4E9A52','#C0392B','#7A8A99','#2C5F8A'];
 
-const [topo,etopo,inm]=await Promise.all(['data/municipios.topo.json','data/estados.topo.json','data/inmuebles.json'].map(u=>fetch(u).then(r=>r.json())));
+const [topo,etopo,inm,axa]=await Promise.all(['data/municipios.topo.json','data/estados.topo.json','data/inmuebles.json','data/axa.json'].map(u=>fetch(u).then(r=>r.json())));
 $('#loading').remove();
 
 const feats=topojson.feature(topo,topo.objects.mun).features;
 const M=new Map(feats.map(f=>[f.properties.id,f]));
 const C=inm.cols.reduce((o,c,i)=>(o[c]=i,o),{});
-const ROWS=inm.rows;
+C.cliente=inm.cols.length;C.criterio=inm.cols.length+1;
+const AX=axa.cols.reduce((o,c,i)=>(o[c]=i,o),{});
+const ROWS=inm.rows.map(r=>[...r,'BBVA',''])
+  .concat(axa.rows.map(r=>[...inm.cols.map(c=>r[AX[c]]??''),'AXA',r[AX.criterio]||'']));
 const short=s=>s.replace(/ de Ignacio de la Llave| de Zaragoza| de Ocampo/,'');
 const norm=s=>s.normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase();
 feats.forEach(f=>{f.properties.q=norm(f.properties.n+' '+f.properties.s)});
 
 // gestor colores por tamaño de cartera
 const gcount=d3.rollup(ROWS,v=>v.length,r=>r[C.gestor]);
-const GESTORES=[...gcount.keys()].filter(Boolean).sort((a,b)=>gcount.get(b)-gcount.get(a));
-const GC=new Map(GESTORES.map((g,i)=>[g,PALETTE[i%PALETTE.length]]));
+const GESTORES=[...gcount.keys()].filter(Boolean).sort((a,b)=>(a==='PENDIENTE')-(b==='PENDIENTE')||gcount.get(b)-gcount.get(a));
+const GC=new Map(GESTORES.filter(g=>g!=='PENDIENTE').map((g,i)=>[g,PALETTE[i%PALETTE.length]]));GC.set('PENDIENTE','#8A8F98');
+const CLI=['BBVA','AXA'];
 const PROY=[...new Set(ROWS.map(r=>r[C.proyecto]))];
 const EST=[...d3.rollup(ROWS,v=>v.length,r=>r[C.estatus])].sort((a,b)=>b[1]-a[1]).map(d=>d[0]);
 
-const S={gestor:null,mun:null,tab:'mun',proy:new Set(PROY),est:new Set(EST),distTo:null,base:null,pickDest:false,stateTable:'estado'};
+const ok=r=>S.cli.has(r[C.cliente])&&S.proy.has(r[C.proyecto])&&S.est.has(r[C.estatus]);
+const S={gestor:null,mun:null,tab:'mun',proy:new Set(PROY),est:new Set(EST),cli:new Set(CLI),distTo:null,base:null,pickDest:false,stateTable:'estado'};
 
 function hav(a,b){const R=6371,t=Math.PI/180;const p1=a.cy*t,p2=b.cy*t,dp=(b.cy-a.cy)*t,dl=(b.cx-a.cx)*t;const h=Math.sin(dp/2)**2+Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;return 2*R*Math.asin(Math.sqrt(h))}
 const km=(a,b)=>hav(M.get(a).properties,M.get(b).properties);
@@ -256,7 +263,7 @@ let AG; // {mun: Map id->{n, byG:Map}, g: Map gestor->{n, muns:Map id->n, edos:S
 function aggregate(){
   const mun=new Map(),g=new Map();
   for(const r of ROWS){
-    if(!S.proy.has(r[C.proyecto])||!S.est.has(r[C.estatus]))continue;
+    if(!ok(r))continue;
     const id=r[C.cve],gg=r[C.gestor];
     if(id){let m=mun.get(id);if(!m)mun.set(id,m={n:0,byG:new Map()});m.n++;m.byG.set(gg,(m.byG.get(gg)||0)+1)}
     let x=g.get(gg);if(!x)g.set(gg,x={n:0,muns:new Map(),edos:new Set()});x.n++;
@@ -380,7 +387,7 @@ function drawOverlay(){
 function kpis(){
   const n=[...AG.mun.values()].reduce((s,m)=>s+m.n,0);
   const edos=new Set([...AG.mun.keys()].map(id=>M.get(id).properties.s));
-  $('#kpis').innerHTML=[[fmt(n),'inmuebles'],[fmt(AG.mun.size),'municipios'],[edos.size,'estados'],[GESTORES.length,'gestores']].map(([b,s])=>`<div class="kpi"><b>${b}</b><span>${s}</span></div>`).join('');
+  $('#kpis').innerHTML=[[fmt(n),'inmuebles'],[fmt(AG.mun.size),'municipios'],[edos.size,'estados'],[GESTORES.filter(g=>g!=='PENDIENTE').length,'gestores']].map(([b,s])=>`<div class="kpi"><b>${b}</b><span>${s}</span></div>`).join('');
 }
 function glist(){
   $('#glist').innerHTML=GESTORES.map(g=>{const x=AG.g.get(g)||{n:0,muns:new Map(),edos:new Set()};
@@ -395,11 +402,11 @@ function selectGestor(g){
 }
 $('#todos').onclick=()=>selectGestor(null);
 function chips(el,vals,set){
-  const counts=d3.rollup(ROWS,v=>v.length,r=>el==='#fproy'?r[C.proyecto]:r[C.estatus]);
+  const counts=d3.rollup(ROWS,v=>v.length,r=>r[{'#fproy':C.proyecto,'#fest':C.estatus,'#fcli':C.cliente}[el]]);
   $(el).innerHTML=vals.map(v=>`<button class="chip" aria-pressed="${set.has(v)}" data-v="${v}">${v.toLowerCase()} · ${counts.get(v)}</button>`).join('');
   $(el).querySelectorAll('.chip').forEach(b=>b.onclick=()=>{const v=b.dataset.v;set.has(v)?set.delete(v):set.add(v);b.setAttribute('aria-pressed',set.has(v));refresh()});
 }
-chips('#fproy',PROY,S.proy);chips('#fest',EST,S.est);
+chips('#fcli',CLI,S.cli);chips('#fproy',PROY,S.proy);chips('#fest',EST,S.est);
 
 // ---------- buscador ----------
 function search(input,box,onPick){
@@ -419,21 +426,21 @@ function setTab(t,silent){S.tab=t;['mun','dist','ruta'].forEach(x=>$('#t-'+x).se
 ['mun','dist','ruta'].forEach(x=>$('#t-'+x).onclick=()=>setTab(x));
 function renderTab(){({mun:tabMun,dist:tabDist,ruta:tabRuta})[S.tab]();}
 const gtag=g=>`<span style="white-space:nowrap"><span class="dot" style="background:${GC.get(g)}"></span>${g}</span>`;
-const estPill=e=>`<span class="pill ${e==='EN OPERACIÓN'?'ok':/CERRADA|VENDIDO|CANCELADO|INVADIDO/.test(e)?'bad':''}">${e.toLowerCase()}</span>`;
+const estPill=e=>`<span class="pill ${e==='EN OPERACIÓN'||e==='ACTIVA'?'ok':/CERRADA|VENDIDO|CANCELADO|INVADIDO/.test(e)?'bad':''}">${e.toLowerCase()}</span>`;
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
 function tabMun(){
   const tb=$('#tb');
   if(!S.mun){tb.innerHTML=`<div class="empty"><b>Elige un municipio</b>Haz clic en el mapa o búscalo arriba para ver sus inmuebles, su gestor y las distancias a los municipios vecinos.</div>${resumenGestores()}`;bindRows();return}
   const p=M.get(S.mun).properties,m=AG.mun.get(S.mun);
-  const rows=ROWS.filter(r=>r[C.cve]===S.mun&&S.proy.has(r[C.proyecto])&&S.est.has(r[C.estatus]));
+  const rows=ROWS.filter(r=>r[C.cve]===S.mun&&ok(r));
   const near=feats.filter(f=>f.properties.e===p.e&&f.properties.id!==S.mun).map(f=>[f.properties.id,km(S.mun,f.properties.id)]).sort((a,b)=>a[1]-b[1]).slice(0,8);
   const nearAssigned=[...AG.mun.keys()].filter(id=>id!==S.mun).map(id=>[id,km(S.mun,id)]).sort((a,b)=>a[1]-b[1]).slice(0,6);
   tb.innerHTML=`<h3>${p.n}</h3><div class="meta">${p.s} · clave INEGI ${p.id} · ${fmt(p.km2)} km²</div>
   <div class="stats"><div class="stat"><b>${m?m.n:0}</b><span>inmuebles</span></div><div class="stat"><b>${m?m.byG.size:0}</b><span>gestores</span></div><div class="stat"><b>${near.length?fmt(Math.round(near[0][1])):'—'}</b><span>km al vecino</span></div></div>
   ${m?`<div class="row2">${[...m.byG].sort((a,b)=>b[1]-a[1]).map(([g,n])=>`<button class="btn" data-sg="${esc(g)}">${gtag(g)} · ${n}</button>`).join('')}</div>`:''}
   <div class="sec"><h2>Inmuebles</h2><span class="note">${rows.length}</span></div>
-  ${rows.length?rows.map(r=>`<div class="inm"><div class="t"><b>${esc(r[C.nombre])}</b>${estPill(r[C.estatus])}</div><small>${r[C.id]} · CR ${r[C.cr]} · ${r[C.tipo].toLowerCase()} · ${r[C.proyecto].toLowerCase()} · ${gtag(r[C.gestor])}</small>${r[C.direccion]?`<small>${esc(r[C.direccion])}</small>`:''}${r[C.nota]?`<small>Nota: ${esc(r[C.nota])}</small>`:''}${r[C.gestor_xls]?`<small style="color:var(--warn)">Reasignado a ${esc(r[C.gestor])}; en el Excel estaba con ${esc(r[C.gestor_xls])}</small>`:''}</div>`).join(''):'<p class="note">Sin inmuebles con los filtros actuales.</p>'}
+  ${rows.length?rows.map(r=>`<div class="inm"><div class="t"><b>${esc(r[C.nombre])}</b>${estPill(r[C.estatus])}</div><small>${r[C.id]} · CR ${r[C.cr]} · ${r[C.tipo].toLowerCase()} · ${r[C.proyecto].toLowerCase()} · ${gtag(r[C.gestor])}</small>${r[C.direccion]?`<small>${esc(r[C.direccion])}</small>`:''}<small><span class="pill">${r[C.cliente]}</span></small>${r[C.nota]?`<small>Nota: ${esc(r[C.nota])}</small>`:''}${r[C.criterio]?`<small>Gestor asignado por ${esc(r[C.criterio])}</small>`:''}${r[C.gestor_xls]?`<small style="color:var(--warn)">Reasignado a ${esc(r[C.gestor])}; en el Excel estaba con ${esc(r[C.gestor_xls])}</small>`:''}</div>`).join(''):'<p class="note">Sin inmuebles con los filtros actuales.</p>'}
   <div class="sec"><h2>Municipios más cercanos con inmuebles</h2></div>
   <table><thead><tr><th>Municipio</th><th>Gestor</th><th class="n">km</th></tr></thead><tbody>${nearAssigned.map(([id,k])=>{const q=M.get(id).properties,mm=AG.mun.get(id);return `<tr class="click" data-go="${id}"><td>${q.n}<br><span class="note">${q.s}</span></td><td>${[...mm.byG.keys()].map(gtag).join('<br>')}</td><td class="n">${fmt(Math.round(k))}</td></tr>`}).join('')}</tbody></table>
   <div class="sec"><h2>Vecinos en ${p.s}</h2><button class="btn" data-totab="dist">Tabla completa</button></div>
@@ -609,7 +616,7 @@ function buildPlan(g){
 }
 
 const dfmt=new Intl.DateTimeFormat('es-MX',{weekday:'short',day:'numeric',month:'short'});
-const inmOf=(g,id)=>ROWS.filter(r=>r[C.cve]===id&&r[C.gestor]===g&&S.proy.has(r[C.proyecto])&&S.est.has(r[C.estatus])).sort((a,b)=>a[C.nombre].localeCompare(b[C.nombre]));
+const inmOf=(g,id)=>ROWS.filter(r=>r[C.cve]===id&&r[C.gestor]===g&&ok(r)).sort((a,b)=>a[C.nombre].localeCompare(b[C.nombre]));
 const place=id=>{const p=M.get(id).properties;return `${p.n}, ${p.s}, México`};
 function gmaps(d){
   const pts=[d.from,...d.items.filter(i=>i.type==='drive').map(i=>i.to)];
@@ -715,7 +722,7 @@ function planCSV(g){
 
 function refresh(){aggregate();kpis();glist();paint();renderTab();drawOverlay()}
 const sinUbicar=ROWS.filter(r=>!r[C.cve]).length;
-$('#fuente').textContent=`${inm.fuente} · límites municipales INEGI 2023${sinUbicar?` · ${sinUbicar} inmueble sin municipio reconocido`:''}`;
+$('#fuente').textContent=`BBVA (${fmt(inm.rows.length)}) y AXA (${fmt(axa.rows.length)}) · límites municipales INEGI 2023${sinUbicar?` · ${sinUbicar} inmueble sin municipio reconocido`:''}`;
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>paint());
 new MutationObserver(()=>paint()).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
 refresh();

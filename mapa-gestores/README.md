@@ -30,3 +30,13 @@ python3 tools/build_inmuebles.py ASIGNACION_GESTORES_2027.xlsx data/municipios.t
 ```
 
 Límites municipales: CONABIO/INEGI 2023 vía github.com/PhantomInsights/mexico-geojson (MIT), simplificados con mapshaper.
+
+## Base AXA
+`tools/build_axa.py` lee las pestañas OFICINAS y TIENDAS del Excel de seguimiento AXA, ubica cada sucursal en su municipio INEGI
+y le asigna gestor: primero reglas fijas (`REGLAS_AXA`), luego el gestor que ya atiende ese municipio en BBVA, luego el único gestor del
+estado o el del municipio BBVA más cercano; si el estado no tiene gestor queda como PENDIENTE. Genera `data/axa.json` y, opcionalmente,
+una copia del Excel con la columna "GESTOR 2027" agregada a cada tabla (conserva listas desplegables y formato).
+
+```
+python3 tools/build_axa.py Seguimiento_AXA.xlsx data/municipios.topo.json data/inmuebles.json data/axa.json salida.xlsx
+```

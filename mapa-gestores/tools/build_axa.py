@@ -39,7 +39,14 @@ def city_fix(st, city, addr):
     return CITY.get(c, c)
 
 # Asignaciones fijas del usuario. Clave: 2 dígitos = estado, 5 dígitos = municipio.
-REGLAS_AXA = {}
+REGLAS_AXA = {
+    '07': 'NOE',       # Chiapas
+    '27': 'NOE',       # Tabasco
+    '04': 'NOE',       # Campeche
+    '31050': 'MERCEDES',  # Mérida, Yucatán
+    '17': 'EDGAR',     # Morelos
+    '10': 'CATA',      # Durango
+}
 
 def main(xlsx, topo_path, bbva_path, out_path, xlsx_out=None):
     topo = json.load(open(topo_path, encoding='utf-8'))
@@ -145,6 +152,9 @@ def write_xlsx(src, dst, per_sheet):
         cols = [(int(a), int(b)) for a, b in re.findall(r'<col min="(\d+)" max="(\d+)"', sx)]
         if '</cols>' in sx and not any(a <= last + 1 <= b for a, b in cols):
             sx = sx.replace('</cols>', f'<col min="{last + 1}" max="{last + 1}" width="18" customWidth="1"/></cols>', 1)
+        dm = re.search(r'<dimension ref="([A-Z]+\d+):([A-Z]+)(\d+)"/>', sx)
+        if dm and col_idx(dm.group(2)) < last + 1:
+            sx = sx.replace(dm.group(0), f'<dimension ref="{dm.group(1)}:{newc}{dm.group(3)}"/>')
         edits[sf] = sx
     with zipfile.ZipFile(dst, 'w', zipfile.ZIP_DEFLATED) as zout:
         for item in zin.infolist():

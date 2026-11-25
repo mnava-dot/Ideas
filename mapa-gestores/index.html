@@ -227,7 +227,7 @@ details.incl summary{cursor:pointer;font-weight:600;font-size:12px}
 const $=s=>document.querySelector(s);
 const _nf=new Intl.NumberFormat('es-MX');const fmt=v=>_nf.format(v);
 const ROAD=1.3; // factor carretera sobre línea recta
-const PALETTE=['#E4572E','#2E86AB','#8E5BD0','#17A673','#E8A33D','#D6457A','#2BB3C0','#9C7A3C','#5C7CFA','#9AA82C','#C964D9','#4E9A52','#C0392B','#7A8A99','#2C5F8A'];
+const PALETTE=['#E4572E','#2E86AB','#8E5BD0','#17A673','#E8A33D','#D6457A','#2BB3C0','#9C7A3C','#5C7CFA','#9AA82C','#C964D9','#4E9A52','#C0392B','#7A8A99','#2C5F8A','#D9822B','#3F8F8A'];
 
 const [topo,etopo,inm,axa]=await Promise.all(['data/municipios.topo.json','data/estados.topo.json','data/inmuebles.json','data/axa.json'].map(u=>fetch(u).then(r=>r.json())));
 $('#loading').remove();
